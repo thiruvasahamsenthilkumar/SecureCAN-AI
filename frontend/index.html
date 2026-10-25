@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureCAN AI - Vehicle Network Intrusion Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🔒 SecureCAN AI</h1>
+                <p>Real-Time Vehicle CAN Bus Intrusion Detection System</p>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot active"></span>
+                <span class="status-text">Simulated Feed</span>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Top Stats Cards -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <h3>Total Messages</h3>
+                        <p class="stat-value" id="totalMessages">0</p>
+                        <span class="stat-unit">analyzed</span>
+                    </div>
+                </div>
+
+                <div class="stat-card warning">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <h3>Attacks Detected</h3>
+                        <p class="stat-value" id="attackCount">0</p>
+                        <span class="stat-unit">threats blocked</span>
+                    </div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <h3>Test Accuracy</h3>
+                        <p class="stat-value">99.44%</p>
+                        <span class="stat-unit">held-out, 540 windows</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-content">
+                        <h3>Model Arrays</h3>
+                        <p class="stat-value">7.0 KB</p>
+                        <span class="stat-unit">40 trees / 1024 nodes</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Row -->
+            <section class="charts-section">
+                <!-- Real-time Detection Chart -->
+                <div class="chart-container">
+                    <h2>Detection Timeline</h2>
+                    <canvas id="detectionChart"></canvas>
+                </div>
+
+                <!-- Attack Type Distribution -->
+                <div class="chart-container">
+                    <h2>Attack Distribution</h2>
+                    <canvas id="attackTypeChart"></canvas>
+                </div>
+            </section>
+
+            <!-- CAN Network Visualization -->
+            <section class="can-network">
+                <h2>🌐 CAN Bus Network Status</h2>
+                <div class="network-viz">
+                    <div class="ecu-node" id="ecu1">
+                        <div class="node-icon">🔧</div>
+                        <div class="node-label">ECM</div>
+                        <div class="node-status safe">Safe</div>
+                    </div>
+                    <div class="ecu-node" id="ecu2">
+                        <div class="node-icon">⚙️</div>
+                        <div class="node-label">TCM</div>
+                        <div class="node-status safe">Safe</div>
+                    </div>
+                    <div class="ecu-node" id="ecu3">
+                        <div class="node-icon">🛑</div>
+                        <div class="node-label">ABS</div>
+                        <div class="node-status safe">Safe</div>
+                    </div>
+                    <div class="ecu-node" id="ecu4">
+                        <div class="node-icon">📡</div>
+                        <div class="node-label">Gateway</div>
+                        <div class="node-status safe">Safe</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Real-Time Alerts Log -->
+            <section class="alerts-section">
+                <div class="alerts-header">
+                    <h2>🔔 Alert Log <span class="tag-sim">simulated stream</span></h2>
+                    <button class="btn-clear" onclick="clearAlerts()">Clear</button>
+                </div>
+                <div class="alerts-container" id="alertsContainer">
+                    <div class="alert-placeholder">
+                        <p>Waiting for CAN bus data...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Model Performance Metrics -->
+            <section class="metrics-section">
+                <h2>📈 Model Performance</h2>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <h3>Macro Precision</h3>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 98.5%"></div>
+                        </div>
+                        <p>0.985</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Macro Recall</h3>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 98.3%"></div>
+                        </div>
+                        <p>0.983</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Macro F1</h3>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 98.3%"></div>
+                        </div>
+                        <p>0.983</p>
+                    </div>
+                    <div class="metric">
+                        <h3>INT8 vs float32</h3>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 100%"></div>
+                        </div>
+                        <p>100.00% agree</p>
+                    </div>
+                </div>
+                <p class="metrics-note">Held-out test split (540 windows) from
+                <code>scripts/pipeline.py</code>. Equivalence measured over 2160 windows by
+                <code>scripts/verify_quantized.py</code>.</p>
+            </section>
+
+            <!-- Attack Types Breakdown -->
+            <section class="attack-details">
+                <h2>🎯 Attack Type Analysis</h2>
+                <div class="attack-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1</th>
+                                <th>Support</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Normal traffic</strong></td>
+                                <td class="highlight-success">0.990</td>
+                                <td>0.995</td>
+                                <td>0.993</td>
+                                <td>200</td>
+                            </tr>
+                            <tr>
+                                <td><strong>DoS (Denial of Service)</strong></td>
+                                <td class="highlight-success">1.000</td>
+                                <td>1.000</td>
+                                <td>1.000</td>
+                                <td>277</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fuzzy Injection</strong></td>
+                                <td class="highlight-success">1.000</td>
+                                <td>0.957</td>
+                                <td>0.978</td>
+                                <td>23</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fake RPM Spoofing</strong></td>
+                                <td class="highlight-success">0.933</td>
+                                <td>1.000</td>
+                                <td>0.966</td>
+                                <td>14</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fake Gear Signal</strong></td>
+                                <td class="highlight-success">1.000</td>
+                                <td>0.962</td>
+                                <td>0.980</td>
+                                <td>26</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- System Info -->
+            <section class="system-info">
+                <h2>ℹ️ System Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Deployment Platform:</span>
+                        <span class="info-value">ESP32-WROOM-32</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">ML Framework:</span>
+                        <span class="info-value">scikit-learn (Random Forest)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Dataset:</span>
+                        <span class="info-value">HCRL-structured synthetic (54,031 msgs)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Model Quantization:</span>
+                        <span class="info-value">INT8, 7.0 KB arrays, 0.00 pp loss</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Detection Unit:</span>
+                        <span class="info-value">50-message sliding window</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">On-device Latency:</span>
+                        <span class="info-value">not yet measured</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>SecureCAN AI © 2024 | Built for Automotive Cybersecurity | ESP32 Embedded Deployment</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+msg_rate
+mean_iat
+std_iat
+min_iat
+unique_ids
+id_entropy
+dominant_id_ratio
+mean_dlc
+mean_byte
+std_byte
+max_byte
+byte_entropy
+saturated_ratio
+zero_ratio

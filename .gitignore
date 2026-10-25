@@ -1,0 +1,45 @@
+# Data files (large CSV datasets)
+data/*.csv
+!data/README.md
+!data/feature_names.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Compiled models (but keep the joblib file)
+*.h5
+*.pkl.bak
+
+# Large binary files
+*.mp4
+
+# Local test outputs
+*.log
+test_output/
+
+# Claude Code local state
+.claude/
