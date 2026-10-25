@@ -1,0 +1,34 @@
+{
+  "purpose": "C++/sklearn equivalence, not a generalization measurement",
+  "windows": 400,
+  "classify_agreement_pct": 100.0,
+  "end_to_end_agreement_pct": 100.0,
+  "host_inference_ns": 297.5,
+  "sample_accuracy_sklearn_pct": 100.0,
+  "sample_accuracy_cpp_pct": 100.0,
+  "sample_accuracy_caveat": "Sample spans the full capture and overlaps the training split; not a held-out score. See model/metrics.json for that.",
+  "max_rel_feature_err": {
+    "msg_rate": 5.0112702794137845e-05,
+    "mean_iat": 0.02104708344046642,
+    "std_iat": 0.026996091280894197,
+    "min_iat": 133.70877459184118,
+    "unique_ids": 0.0,
+    "id_entropy": 3.248346329386148e-06,
+    "dominant_id_ratio": 3.973642830828406e-08,
+    "mean_dlc": 4.0193171991101174e-08,
+    "mean_byte": 5.202935158757035e-08,
+    "std_byte": 2.1761861742959208e-07,
+    "max_byte": 0.0,
+    "byte_entropy": 2.0748995331727644e-06,
+    "saturated_ratio": 3.973642830828406e-08,
+    "zero_ratio": 5.398156804388283e-08
+  },
+  "min_iat_note": "min_iat shows large relative error: device timestamps are uint32 microseconds (1 us floor) while Python uses float seconds. Absolute error is <=1 us and no prediction changed, but sub-microsecond intervals are not representable on device.",
+  "per_class_cpp_recall_pct": {
+    "NORMAL": 100.0,
+    "DOS": 100.0,
+    "FUZZY": 100.0,
+    "FAKE_RPM": 100.0,
+    "FAKE_GEAR": 100.0
+  }
+}

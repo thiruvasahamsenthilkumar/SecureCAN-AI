@@ -8,6 +8,11 @@ data/*.csv
 *.o
 tests/host_predictions.csv
 
+# Generated test vectors (re-created by scripts/export_test_vectors.py)
+tests/vec_features.csv
+tests/vec_windows.csv
+tests/_idx.npy
+
 # Python
 __pycache__/
 *.py[cod]

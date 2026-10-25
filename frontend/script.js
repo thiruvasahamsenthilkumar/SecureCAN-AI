@@ -1,279 +1,200 @@
-// SecureCAN AI - Frontend Dashboard Script
+// Dashboard for SecureCAN AI. Renders the output of scripts/live_demo.py, which
+// bakes its results into data.js. No synthetic numbers here -- if data.js is
+// absent the page says so rather than inventing a feed.
 
-let messageCount = 0;
-let attackCount = 0;
-let detectionChart, attackTypeChart;
-const alerts = [];
+const D = window.SECURECAN || null;
+const CLASS_COLORS = {
+  NORMAL: "#00ff41", DOS: "#ff0000", FUZZY: "#ffa500",
+  FAKE_RPM: "#ff006e", FAKE_GEAR: "#00d4ff",
+};
 
-// Initialize Charts
-function initCharts() {
-    // Detection Timeline Chart
-    const detectionCtx = document.getElementById('detectionChart').getContext('2d');
-    detectionChart = new Chart(detectionCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'Normal Traffic',
-                    data: [],
-                    borderColor: '#00d4ff',
-                    backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 3,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#00d4ff'
-                },
-                {
-                    label: 'Attacks Detected',
-                    data: [],
-                    borderColor: '#ff006e',
-                    backgroundColor: 'rgba(255, 0, 110, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 3,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#ff006e'
-                }
-            ]
+function setText(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+function noData() {
+  document.querySelectorAll(".stat-value").forEach((e) => (e.textContent = "--"));
+  const c = document.getElementById("alertsContainer");
+  if (c) {
+    c.innerHTML = `<div class="alert-placeholder">
+      <p><strong>No run data found.</strong></p>
+      <p>Generate it with <code>python scripts/live_demo.py</code></p>
+    </div>`;
+  }
+  const dot = document.querySelector(".status-dot");
+  const txt = document.querySelector(".status-text");
+  if (dot) dot.style.background = "#888";
+  if (txt) { txt.textContent = "No Data"; txt.style.color = "#888"; }
+}
+
+function renderStats() {
+  const s = D.summary;
+  setText("totalMessages", s.frames_replayed.toLocaleString());
+  setText("attackCount", s.alerts_raised.toLocaleString());
+  const txt = document.querySelector(".status-text");
+  if (txt) txt.textContent = `Replay ${s.throughput_fps.toFixed(0)} f/s`;
+}
+
+// Predicted class over the replay, with ground truth dashed beneath it.
+function renderTimeline() {
+  const el = document.getElementById("detectionChart");
+  if (!el || !window.Chart) return;
+
+  const labels = Object.keys(CLASS_COLORS);
+  const toY = (name) => labels.indexOf(name);
+  const pts = D.detections;
+
+  new Chart(el, {
+    type: "line",
+    data: {
+      labels: pts.map((p) => p.bus_time.toFixed(1)),
+      datasets: [
+        {
+          label: "predicted",
+          data: pts.map((p) => toY(p.predicted)),
+          borderColor: "#00d4ff",
+          backgroundColor: "rgba(0,212,255,.12)",
+          stepped: true, borderWidth: 2, pointRadius: 0, fill: true,
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#e0e0e0',
-                        font: { size: 12 }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: { color: '#888' },
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    beginAtZero: true
-                },
-                x: {
-                    ticks: { color: '#888' },
-                    grid: { color: 'rgba(255,255,255,0.05)' }
-                }
-            }
-        }
-    });
-
-    // Attack Type Distribution Chart
-    const attackCtx = document.getElementById('attackTypeChart').getContext('2d');
-    attackTypeChart = new Chart(attackCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['DoS', 'Fuzzy', 'Fake RPM', 'Fake Gear'],
-            datasets: [{
-                data: [2847, 892, 546, 423],
-                backgroundColor: [
-                    'rgba(255, 0, 0, 0.6)',
-                    'rgba(255, 165, 0, 0.6)',
-                    'rgba(255, 0, 110, 0.6)',
-                    'rgba(0, 212, 255, 0.6)'
-                ],
-                borderColor: [
-                    '#ff0000',
-                    '#ffa500',
-                    '#ff006e',
-                    '#00d4ff'
-                ],
-                borderWidth: 2
-            }]
+        {
+          label: "actual",
+          data: pts.map((p) => toY(p.actual)),
+          borderColor: "rgba(255,255,255,.4)",
+          stepped: true, borderWidth: 1, pointRadius: 0,
+          borderDash: [4, 3], fill: false,
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#e0e0e0',
-                        font: { size: 12 },
-                        padding: 15
-                    }
-                }
-            }
-        }
-    });
-}
-
-// Simulate Real-Time Data
-function simulateRealTimeData() {
-    setInterval(() => {
-        messageCount += Math.floor(Math.random() * 50) + 20;
-
-        // 3-5% chance of attack
-        if (Math.random() < 0.04) {
-            attackCount++;
-            addAlert();
-        }
-
-        // Update stats
-        document.getElementById('totalMessages').textContent = messageCount.toLocaleString();
-        document.getElementById('attackCount').textContent = attackCount.toLocaleString();
-
-        // Update detection rate
-        const detectionRate = messageCount > 0 ? ((messageCount - attackCount) / messageCount * 100).toFixed(1) : 0;
-        document.getElementById('detectionRate').textContent = detectionRate + '%';
-
-        // Update chart every 10 iterations
-        if (messageCount % 500 === 0) {
-            updateCharts();
-        }
-    }, 1000);
-}
-
-// Update Charts
-function updateCharts() {
-    const timeLabel = new Date().toLocaleTimeString();
-    const normalCount = messageCount - attackCount;
-
-    detectionChart.data.labels.push(timeLabel);
-    detectionChart.data.datasets[0].data.push(normalCount);
-    detectionChart.data.datasets[1].data.push(attackCount);
-
-    // Keep only last 20 data points
-    if (detectionChart.data.labels.length > 20) {
-        detectionChart.data.labels.shift();
-        detectionChart.data.datasets[0].data.shift();
-        detectionChart.data.datasets[1].data.shift();
-    }
-
-    detectionChart.update();
-}
-
-// Attack Types
-const attackTypes = [
-    {
-        type: 'DoS (Denial of Service)',
-        description: 'High-frequency message flood detected',
-        confidence: 99
+      ],
     },
-    {
-        type: 'Fuzzy Injection',
-        description: 'Malformed CAN message detected',
-        confidence: 96
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        y: {
+          min: -0.5, max: labels.length - 0.5,
+          ticks: { callback: (v) => labels[v] || "", color: "#888", font: { size: 10 } },
+          grid: { color: "rgba(255,255,255,.05)" },
+        },
+        x: {
+          title: { display: true, text: "bus time (s)", color: "#888" },
+          ticks: { color: "#888", maxTicksLimit: 12 },
+          grid: { display: false },
+        },
+      },
+      plugins: { legend: { labels: { color: "#e0e0e0", boxWidth: 12 } } },
     },
-    {
-        type: 'Fake RPM Spoofing',
-        description: 'Anomalous engine RPM signal detected',
-        confidence: 98
-    },
-    {
-        type: 'Fake Gear Signal',
-        description: 'Transmission gear inconsistency detected',
-        confidence: 94
-    }
-];
-
-// Add Alert
-function addAlert() {
-    const attack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
-    const alertTime = new Date().toLocaleTimeString();
-    const canID = '0x' + Math.floor(Math.random() * 0x800).toString(16).toUpperCase().padStart(3, '0');
-    const latency = (Math.random() * 4 + 1).toFixed(2);
-
-    const alert = {
-        time: alertTime,
-        type: attack.type,
-        description: attack.description,
-        confidence: attack.confidence,
-        canID: canID,
-        latency: latency
-    };
-
-    alerts.unshift(alert);
-
-    // Keep only last 50 alerts
-    if (alerts.length > 50) {
-        alerts.pop();
-    }
-
-    renderAlerts();
+  });
 }
 
-// Render Alerts
+function renderPerClass() {
+  const el = document.getElementById("attackTypeChart");
+  if (!el || !window.Chart) return;
+
+  const pc = D.summary.per_class;
+  const names = Object.keys(pc);
+
+  new Chart(el, {
+    type: "bar",
+    data: {
+      labels: names,
+      datasets: [{
+        label: "recall %",
+        data: names.map((n) => pc[n].recall_pct),
+        backgroundColor: names.map((n) => (CLASS_COLORS[n] || "#888") + "cc"),
+        borderColor: names.map((n) => CLASS_COLORS[n] || "#888"),
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { min: 0, max: 100, ticks: { color: "#888" },
+             grid: { color: "rgba(255,255,255,.05)" } },
+        x: { ticks: { color: "#888", font: { size: 10 } }, grid: { display: false } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { afterLabel: (c) => `${pc[names[c.dataIndex]].windows} windows` } },
+      },
+    },
+  });
+}
+
+// Light up an ECU when a class implicating it was flagged.
+const ECU_FOR_CLASS = { FAKE_RPM: "ecu1", FAKE_GEAR: "ecu2", FUZZY: "ecu3", DOS: "ecu4" };
+
+function renderNetwork() {
+  const hit = new Set(
+    D.detections.filter((d) => d.predicted !== "NORMAL").map((d) => ECU_FOR_CLASS[d.predicted])
+  );
+  Object.values(ECU_FOR_CLASS).forEach((id) => {
+    const node = document.getElementById(id);
+    const badge = node && node.querySelector(".node-status");
+    if (!badge) return;
+    badge.textContent = hit.has(id) ? "Flagged" : "Clean";
+    badge.className = "node-status " + (hit.has(id) ? "alert" : "safe");
+  });
+}
+
 function renderAlerts() {
-    const container = document.getElementById('alertsContainer');
-    container.innerHTML = '';
+  const box = document.getElementById("alertsContainer");
+  if (!box) return;
 
-    if (alerts.length === 0) {
-        container.innerHTML = '<div class="alert-placeholder"><p>Waiting for CAN bus data...</p></div>';
-        return;
-    }
+  const alerts = D.detections.filter((d) => d.predicted !== "NORMAL");
+  if (!alerts.length) {
+    box.innerHTML = `<div class="alert-placeholder"><p>No attacks flagged in this run.</p></div>`;
+    return;
+  }
 
-    alerts.forEach(alert => {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert-item ${alert.type.includes('DoS') ? 'danger' : 'warning'}`;
-        alertDiv.innerHTML = `
-            <div class="alert-time">⏰ ${alert.time}</div>
-            <div class="alert-message">🚨 ${alert.type}</div>
-            <div class="alert-details">
-                <div><strong>CAN ID:</strong> ${alert.canID}</div>
-                <div><strong>Confidence:</strong> ${alert.confidence}%</div>
-                <div><strong>Details:</strong> ${alert.description}</div>
-                <div><strong>Latency:</strong> ${alert.latency}ms</div>
-            </div>
-        `;
-        container.appendChild(alertDiv);
-    });
+  box.innerHTML = "";
+  alerts.slice(0, 120).forEach((a) => {
+    const div = document.createElement("div");
+    div.className = "alert-item" + (a.correct ? " danger" : "");
+    div.innerHTML = `
+      <div class="alert-time">bus t=${a.bus_time.toFixed(2)}s &middot; frame ${a.frame}</div>
+      <div class="alert-message">${a.predicted}${
+        a.correct ? "" : ` <span class="tag-sim">actual ${a.actual}</span>`}</div>
+      <div class="alert-details">
+        <span>confidence ${(a.confidence * 100).toFixed(0)}%</span>
+        <span>${a.msg_rate.toFixed(0)} msg/s</span>
+        <span>latency ${a.latency_ms.toFixed(1)} ms</span>
+        <span>byte entropy ${a.byte_entropy.toFixed(2)}</span>
+      </div>`;
+    box.appendChild(div);
+  });
+
+  if (alerts.length > 120) {
+    const n = document.createElement("p");
+    n.className = "metrics-note";
+    n.textContent = `Showing 120 of ${alerts.length} alerts.`;
+    box.appendChild(n);
+  }
 }
 
-// Clear Alerts
+function renderFooter() {
+  const s = D.summary;
+  const f = document.querySelector(".footer p");
+  if (!f) return;
+  const cpp = D.cpp
+    ? ` &middot; C++/sklearn ${D.cpp.end_to_end_agreement_pct}% @ ${D.cpp.host_inference_ns} ns`
+    : "";
+  f.innerHTML = `Replay ${s.frames_replayed.toLocaleString()} frames &middot; `
+    + `${s.windows_classified} windows &middot; accuracy ${s.accuracy_pct}% &middot; `
+    + `false positives ${s.false_positive_rate_pct}% &middot; `
+    + `held-out ${D.model.heldout_accuracy_pct}%${cpp} &middot; ${D.generated}`;
+}
+
 function clearAlerts() {
-    alerts.length = 0;
-    renderAlerts();
+  const box = document.getElementById("alertsContainer");
+  if (box) box.innerHTML = `<div class="alert-placeholder"><p>Cleared &mdash; reload to restore.</p></div>`;
 }
 
-// Simulate Network Status Changes
-function simulateNetworkStatus() {
-    setInterval(() => {
-        const ecus = ['ecu1', 'ecu2', 'ecu3', 'ecu4'];
-        const randomEcu = ecus[Math.floor(Math.random() * ecus.length)];
-        const ecuElement = document.getElementById(randomEcu).querySelector('.node-status');
-
-        // 1% chance of alert
-        if (Math.random() < 0.01) {
-            ecuElement.textContent = 'Alert';
-            ecuElement.classList.remove('safe');
-            ecuElement.classList.add('alert');
-
-            setTimeout(() => {
-                ecuElement.textContent = 'Safe';
-                ecuElement.classList.remove('alert');
-                ecuElement.classList.add('safe');
-            }, 3000);
-        }
-    }, 5000);
-}
-
-// Update Latency Display
-function updateLatency() {
-    setInterval(() => {
-        const latency = (Math.random() * 4 + 1).toFixed(2);
-        document.getElementById('avgLatency').textContent = latency + 'ms';
-    }, 2000);
-}
-
-// Initialize on Page Load
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 SecureCAN AI Dashboard Initialized');
-
-    initCharts();
-    simulateRealTimeData();
-    simulateNetworkStatus();
-    updateLatency();
-});
-
-// Keyboard Shortcuts
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'c' && e.ctrlKey) {
-        clearAlerts();
-        console.log('Alerts cleared');
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  if (!D) return noData();
+  renderStats();
+  renderTimeline();
+  renderPerClass();
+  renderNetwork();
+  renderAlerts();
+  renderFooter();
 });
