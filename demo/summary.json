@@ -1,0 +1,40 @@
+{
+  "frames_replayed": 15000,
+  "wall_seconds": 21.78,
+  "throughput_fps": 688.6,
+  "windows_classified": 599,
+  "accuracy_pct": 51.59,
+  "alerts_raised": 599,
+  "attack_windows": 380,
+  "false_positives": 219,
+  "false_positive_rate_pct": 100.0,
+  "latency_ms": {
+    "mean": 36.19,
+    "p50": 35.717,
+    "p95": 38.267,
+    "max": 69.927
+  },
+  "per_class": {
+    "NORMAL": {
+      "windows": 219,
+      "recall_pct": 0.0
+    },
+    "DOS": {
+      "windows": 309,
+      "recall_pct": 100.0
+    },
+    "FUZZY": {
+      "windows": 14,
+      "recall_pct": 0.0
+    },
+    "FAKE_RPM": {
+      "windows": 22,
+      "recall_pct": 0.0
+    },
+    "FAKE_GEAR": {
+      "windows": 35,
+      "recall_pct": 0.0
+    }
+  },
+  "note": "Latency is host Python/sklearn, not ESP32. See wokwi/ for on-device timing."
+}

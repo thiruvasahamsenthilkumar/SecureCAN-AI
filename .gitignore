@@ -3,6 +3,11 @@ data/*.csv
 !data/README.md
 !data/feature_names.txt
 
+# Build output
+*.exe
+*.o
+tests/host_predictions.csv
+
 # Python
 __pycache__/
 *.py[cod]
@@ -11,6 +16,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 .env
 *.egg-info/
 dist/

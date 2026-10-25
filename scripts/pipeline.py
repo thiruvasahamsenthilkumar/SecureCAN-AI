@@ -171,6 +171,15 @@ def train(X, y):
     return clf, acc, report, cm, (Xte, yte)
 
 
+def _f32(v):
+    """C++ float literal. '%g' renders 2.0 as '2', and '2f' is not a valid
+    literal — the suffix only attaches to a decimal point or an exponent."""
+    s = f"{v:.6g}"
+    if "." not in s and "e" not in s and "E" not in s:
+        s += ".0"
+    return s + "f"
+
+
 def export_cpp(clf, X_ref):
     """Flatten forest to INT8-quantized arrays in a C++ header."""
     # per-feature quantization scale: map observed range to int8
@@ -196,8 +205,8 @@ def export_cpp(clf, X_ref):
          f"#define N_NODES {len(nodes)}",
          f"#define N_CLASSES {len(clf.classes_)}", "",
          "// per-feature dequant: q = (x - lo) * scale - 127",
-         "static const float FEAT_LO[N_FEATURES] = {" + ",".join(f"{v:.6g}f" for v in lo) + "};",
-         "static const float FEAT_SCALE[N_FEATURES] = {" + ",".join(f"{v:.6g}f" for v in scale) + "};", "",
+         "static const float FEAT_LO[N_FEATURES] = {" + ",".join(_f32(v) for v in lo) + "};",
+         "static const float FEAT_SCALE[N_FEATURES] = {" + ",".join(_f32(v) for v in scale) + "};", "",
          "static const int8_t  NODE_FEATURE[N_NODES]  = {" + ",".join(str(n[0]) for n in nodes) + "};",
          "static const int8_t  NODE_THRESH[N_NODES]   = {" + ",".join(str(n[1]) for n in nodes) + "};",
          "static const int16_t NODE_LEFT[N_NODES]     = {" + ",".join(str(n[2]) for n in nodes) + "};",
