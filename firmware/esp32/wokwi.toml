@@ -10,10 +10,24 @@
 # latency, so on real silicon expect the same order of magnitude, not the same
 # number to three digits.
 #
+# To capture the device numbers (per-frame latency, recall, FPR):
+#
 #   cd firmware/esp32
-#   pio run                         # produces the .elf below
-#   wokwi-cli .                     # headless, prints serial to the console
-#                                   # (or: open diagram.json in VS Code)
+#   pio run                                    # produces the .elf below
+#   export WOKWI_CLI_TOKEN=...                 # from wokwi.com/dashboard/ci
+#   wokwi-cli . --timeout 180000 --expect-text "replay complete"
+#
+# The firmware replays all 1,200 frames in src/test_frames.h, prints a summary
+# with mean and max microseconds per frame, then prints "replay complete --
+# halting" and stops. --expect-text makes the CLI exit 0 on that line rather
+# than running until the timeout, so this works unattended and in CI.
+#
+# On Windows PowerShell:  $env:WOKWI_CLI_TOKEN="..."
+# Or open diagram.json in the Wokwi VS Code extension and watch it interactively.
+#
+# Install the CLI (it is a binary, not a pip package):
+#   Windows:      iwr https://wokwi.com/ci/install.ps1 -useb | iex
+#   Linux/macOS:  curl -L https://wokwi.com/ci/install.sh | sh
 
 [wokwi]
 version = 1

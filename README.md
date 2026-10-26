@@ -363,8 +363,20 @@ python -m securecan.demo --inject rpm --int8            # the model that ships
 ```bash
 pytest                               # 32 tests, including Python<->C++ parity
 cd firmware/esp32 && pio run         # build the ESP32 firmware
-wokwi-cli .                          # simulate (needs WOKWI_CLI_TOKEN)
 ```
+
+To run it on the simulated chip and get the device latency numbers:
+
+```bash
+export WOKWI_CLI_TOKEN=...           # free, from https://wokwi.com/dashboard/ci
+cd firmware/esp32
+wokwi-cli . --timeout 180000 --expect-text "replay complete"
+```
+
+The firmware replays all 1,200 recorded frames, prints recall, false-positive rate and
+mean/max µs per frame, then halts. The Wokwi CLI is a standalone binary, not a pip
+package — install it with `iwr https://wokwi.com/ci/install.ps1 -useb | iex` on Windows
+or `curl -L https://wokwi.com/ci/install.sh | sh` elsewhere.
 
 The parity tests need a C++ compiler (`g++` or `clang++`); they skip cleanly without one.
 
