@@ -1,0 +1,21 @@
+# Wokwi simulator configuration.
+#
+# Wokwi runs the SAME .elf that PlatformIO just built for a real ESP32 -- it is a
+# cycle-level simulator of the chip, not a re-implementation of the code. So the
+# serial output below is the firmware actually executing, and the microsecond
+# figures come from the simulated ESP32's own micros().
+#
+# They are still SIMULATED timings, and the README says so. Wokwi models the
+# instruction set and peripheral timing but not flash-cache misses or SPI RAM
+# latency, so on real silicon expect the same order of magnitude, not the same
+# number to three digits.
+#
+#   cd firmware/esp32
+#   pio run                         # produces the .elf below
+#   wokwi-cli .                     # headless, prints serial to the console
+#                                   # (or: open diagram.json in VS Code)
+
+[wokwi]
+version = 1
+firmware = ".pio/build/esp32dev/firmware.bin"
+elf = ".pio/build/esp32dev/firmware.elf"

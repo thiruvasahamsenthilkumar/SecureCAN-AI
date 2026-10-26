@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "author": "SecureCAN AI",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_ok",
+      "top": -60,
+      "left": 150,
+      "attrs": { "color": "green", "label": "BUS OK" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_alert",
+      "top": -60,
+      "left": 220,
+      "attrs": { "color": "red", "label": "ATTACK" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_ok",
+      "top": 10,
+      "left": 150,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_alert",
+      "top": 10,
+      "left": 220,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+
+    [ "esp:D2", "r_ok:1", "green", [ "v0" ] ],
+    [ "r_ok:2", "led_ok:A", "green", [ "v0" ] ],
+    [ "led_ok:C", "esp:GND.2", "black", [ "v0" ] ],
+
+    [ "esp:D4", "r_alert:1", "red", [ "v0" ] ],
+    [ "r_alert:2", "led_alert:A", "red", [ "v0" ] ],
+    [ "led_alert:C", "esp:GND.2", "black", [ "v0" ] ]
+  ],
+  "dependencies": {},
+  "serialMonitor": { "display": "always", "newline": "lf" },
+  "_comment": [
+    "Deliberately minimal: an ESP32, two LEDs and their current-limiting",
+    "resistors. There is no CAN transceiver here because Wokwi does not model",
+    "one -- the firmware replays real HCRL frames from src/test_frames.h instead,",
+    "which is honest about what is simulated and still exercises the full",
+    "feature-extraction and INT8 inference path on the real instruction set.",
+    "",
+    "On a real car you would add an SN65HVD230 transceiver on GPIO4/GPIO5 and",
+    "build with -DSC_USE_TWAI to read the bus through the ESP32's TWAI",
+    "controller. GPIO2 green = bus looks clean, GPIO4 red = attack detected.",
+    "",
+    "The 220 ohm resistors are not decoration: the ESP32 drives 3.3 V and an LED",
+    "forward voltage is ~2 V, so without them the junction sees ~40 mA and dies."
+  ]
+}
