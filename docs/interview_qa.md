@@ -271,7 +271,50 @@ wrong answers a second on a 500 kbit/s bus. I also copied TFLite's
 `MultiplyByQuantizedMultiplier` rounding faithfully instead of simplifying it, because
 the exported multipliers were computed to match it.
 
-**Q3. How do you know the firmware computes the same features as your Python?**
+**Q3. Your firmware came in at 1,749 µs against a 250 µs budget. Walk me through it.**
+
+This is the question I'd most want to be asked.
+
+I was wrong twice before I was right. First I assumed the simulator's `micros()` was
+lying, so I added the CPU cycle counter — and it agreed, at 419,825 cycles. Then I
+assumed flash-cache misses on the weights, since they were `constexpr` and therefore in
+`.rodata`; I moved all 1,740 bytes into internal SRAM with `DRAM_ATTR`, confirmed it took
+effect because RAM grew by exactly 1,768 bytes, and the timing didn't move at all.
+
+So I stopped guessing and calibrated the instrument. `delay(100)` measured 23,827,865
+cycles against 24,000,000 expected — ratio 0.993, so the clock is honest. But that only
+tests *waiting*. I timed 100,000 dependent integer adds and got **105 cycles per
+iteration where silicon costs 4–6**. Wokwi's ESP32 isn't instruction-accurate; it charges
+roughly 20× for compute. The two clocks had agreed only because both track wall time.
+
+So I have no latency number, and the README says so. The simulator proves correctness —
+100% recall, zero false alarms on 1,200 real frames through the actual ELF — and
+verifying the 250 µs budget needs real hardware.
+
+**Q4. Did the profiling find anything real, if the numbers were inflated?**
+
+Yes — dilation is roughly uniform, so ratios between stages still hold, and two genuine
+bugs showed up:
+
+- **Input quantisation, 36,360 → 2,694 cycles.** I was dividing 16 floats by the
+  quantisation scale. The Xtensa LX6 FPU has **no divide instruction**, so each one
+  expanded into a reciprocal estimate plus Newton–Raphson refinement. The scale is a
+  compile-time constant, so I multiply by its reciprocal instead — one `mul.s`.
+- **Requantisation, ~5,000 cycles each and data-dependent.** TFLite's reference writes
+  the rescale as `t / (1ll << 31)`, which is free on a 64-bit host. On 32-bit Xtensa
+  there's no 64-bit divide, so GCC called `__divdi3` — a software bit-by-bit division
+  loop. That's also what made layer 2 swing between 1,032 and 35,403 cycles for identical
+  work: a software division's runtime depends on its operands.
+
+The fix isn't a bare `>>`, because arithmetic shift rounds toward negative infinity while
+division truncates toward zero, and they differ for every negative value with low bits
+set. I take the magnitude, shift that, and reapply the sign — exact truncation. The
+parity test confirms the predicted class still matches TFLite on every frame.
+
+The transferable lesson: **calibrate your instrument before you trust it, and when two
+measurements agree, check they aren't derived from the same source.**
+
+**Q5. How do you know the firmware computes the same features as your Python?**
 
 I don't trust reading them side by side — that's how off-by-one bugs ship, and a feature
 mismatch would be silent, because the firmware would still produce confident answers
@@ -318,12 +361,15 @@ timings are from Wokwi.
 
 **Q3. Which numbers in your README are measured and which are estimated?**
 
-All of them are measured, and the README says which command produced each. Where a
-number is from the Wokwi simulator rather than silicon, it says "measured in Wokwi
-simulation" — Wokwi runs the same ELF on a cycle-level model of the chip, but it doesn't
-model flash-cache misses, so expect the same order of magnitude on real hardware, not
-the same three digits. Where something isn't measured yet, it's marked as not measured
-rather than estimated.
+Every number is measured, and the README names the command that produced it. Where
+something isn't measured, it's marked unmeasured rather than estimated — the per-frame
+latency on the ESP32 is the live example: I ran it, discovered the simulator isn't
+instruction-accurate, and published the gap instead of a figure.
 
-That discipline is deliberate. The one number I was tempted to state without measuring
-was the leave-one-attack-out result, because 0% looked like a bug in my code. It wasn't.
+That discipline is deliberate, and it has paid off twice. The leave-one-attack-out result
+looked like a bug in my code, because 0% recall usually is — it was the real finding. And
+the 1,749 µs latency looked like a broken simulator, which is what I assumed twice before
+calibrating and finding out it was half true in a way that mattered.
+
+If I'd rounded either of those toward the answer I wanted, the project would look better
+and be worth less.

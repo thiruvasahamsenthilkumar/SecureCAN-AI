@@ -16,7 +16,11 @@ rounded in my favour.
 >   to an ESP32 in **hand-written integer inference** — int32 accumulators with
 >   fixed-point requantisation — after the only Arduino build of TensorFlow Lite Micro
 >   proved incompatible with ESP-IDF 5; **validated class-for-class against TFLite's own
->   INT8 interpreter on every test frame**, using 7% of RAM.
+>   INT8 interpreter on every test frame**, using 7.7% of RAM.
+> - Profiled the firmware on-device and found two latency bugs the compiler had hidden:
+>   float division expanding to Newton–Raphson on an FPU with **no divide instruction**
+>   (**13.5× on that stage**), and TFLite's reference rescale compiling to `__divdi3`, a
+>   **software 64-bit division loop**, on 32-bit Xtensa.
 > - Found and quantified a **shortcut in the benchmark dataset itself**: because each
 >   attack campaign injects one constant payload, substituting only the fake value drops
 >   recall from **100% to 0%**, so published 99%-plus results on this dataset do not
@@ -82,5 +86,11 @@ Worth naming explicitly on the CV, because they are the embedded-AI ones:
   exhaust it.
 - **Real-time budgeting** — 250 µs/frame derived from 500 kbit/s and CAN 2.0A frame
   length, not asserted.
+- **Instrument calibration** — proved the ESP32 simulator wasn't instruction-accurate
+  (105 cycles for a 4–6 cycle loop) instead of trusting or dismissing its numbers, and
+  published the resulting gap rather than a figure that couldn't be defended.
+- **Reading compiler output** — diagnosed `__divdi3` and `__divsf3` from the
+  disassembly; knowing that 32-bit Xtensa has no 64-bit divide and the LX6 FPU has no
+  divide instruction is the kind of detail an embedded-AI interviewer probes for.
 - **Evaluation discipline** — time-based splits, scalers fit on training normals only,
   leave-one-attack-out, per-ID false-alarm breakdown.
