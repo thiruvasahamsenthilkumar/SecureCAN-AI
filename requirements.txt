@@ -1,11 +1,50 @@
-pandas>=1.3.0
-numpy>=1.21.0
-scikit-learn>=0.24.0
-matplotlib>=3.4.0
-seaborn>=0.11.0
-python-can>=3.3.0
-joblib>=1.0.0
-jupyter>=1.0.0
-notebook>=6.4.0
-scipy>=1.7.0
-imbalanced-learn>=0.8.0
+# SecureCAN AI -- Python dependencies.
+#
+# Pinned to the versions this project was actually developed and measured on, so
+# the numbers in the README are reproducible. Verified with Python 3.12.10.
+
+# --- model: training and INT8 post-training quantisation --------------------
+# TFLite's converter is what produces results/mlp_int8.tflite, and
+# tests/test_parity.py uses its int8 interpreter as the reference that
+# firmware/esp32/src/nn.h is checked against. The firmware itself links nothing
+# from TensorFlow -- see the README for why.
+tensorflow==2.20.0
+
+# --- the random-forest baseline ---------------------------------------------
+# Only for comparison against the MLP. Nothing from sklearn ships to the device.
+scikit-learn==1.5.2
+
+# --- arrays everywhere ------------------------------------------------------
+numpy==2.1.3
+
+# --- live demo --------------------------------------------------------------
+# python-can's `virtual` interface gives a real bus object with real arrival
+# timing, without needing CAN hardware. colorama makes the ANSI colours in the
+# demo work in the Windows console too.
+python-can==4.4.2
+colorama==0.4.6
+
+# --- plots in results/ and in the exploration notebook ----------------------
+matplotlib==3.9.2
+
+# --- tests ------------------------------------------------------------------
+# The Python<->C++ parity tests also need a C++ compiler (g++ or clang++) on
+# PATH. They skip cleanly if one is not found, so pytest still passes without
+# a toolchain -- just with less coverage.
+pytest==8.3.3
+
+# --- firmware build ---------------------------------------------------------
+# PlatformIO drives the ESP32 build (`cd firmware/esp32 && pio run`). It
+# downloads the Xtensa toolchain on first use.
+#
+# The Wokwi simulator is a separate binary, not a Python package:
+#   Windows:      iwr https://wokwi.com/ci/install.ps1 -useb | iex
+#   Linux/macOS:  curl -L https://wokwi.com/ci/install.sh | sh
+# It needs a WOKWI_CLI_TOKEN from https://wokwi.com/dashboard/ci
+platformio==6.2.0
+
+# --- notebooks --------------------------------------------------------------
+# Only needed to re-run notebooks/01_explore.ipynb. The committed copy already
+# has its outputs, so reading it needs nothing installed.
+ipykernel==7.4.0
+nbconvert==7.17.2
