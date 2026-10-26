@@ -1,0 +1,413 @@
+{
+  "rule": {
+    "binary": {
+      "precision": 0.9295,
+      "recall": 0.9826,
+      "f1": 0.9553
+    },
+    "false_positive_rate_pct": 1.1213
+  },
+  "forest": {
+    "binary": {
+      "precision": 0.9926,
+      "recall": 1.0,
+      "f1": 0.9963
+    },
+    "false_positive_rate_pct": 0.1116,
+    "per_class": {
+      "Normal": {
+        "precision": 1.0,
+        "recall": 0.9989,
+        "f1": 0.9994,
+        "support": 2289434
+      },
+      "DoS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 89246
+      },
+      "Fuzzy": {
+        "precision": 0.9983,
+        "recall": 0.9998,
+        "f1": 0.999,
+        "support": 67779
+      },
+      "Gear": {
+        "precision": 0.9731,
+        "recall": 1.0,
+        "f1": 0.9864,
+        "support": 88334
+      },
+      "RPM": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 98965
+      }
+    },
+    "accuracy": 0.999025
+  },
+  "mlp": {
+    "binary": {
+      "precision": 0.9987,
+      "recall": 1.0,
+      "f1": 0.9994
+    },
+    "false_positive_rate_pct": 0.0189,
+    "per_class": {
+      "Normal": {
+        "precision": 1.0,
+        "recall": 0.9998,
+        "f1": 0.9999,
+        "support": 2289434
+      },
+      "DoS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 89246
+      },
+      "Fuzzy": {
+        "precision": 0.9962,
+        "recall": 0.9998,
+        "f1": 0.998,
+        "support": 67779
+      },
+      "Gear": {
+        "precision": 0.9996,
+        "recall": 1.0,
+        "f1": 0.9998,
+        "support": 88334
+      },
+      "RPM": {
+        "precision": 0.9986,
+        "recall": 1.0,
+        "f1": 0.9993,
+        "support": 98965
+      }
+    },
+    "accuracy": 0.999831,
+    "confusion_matrix": [
+      [
+        2289001,
+        0,
+        260,
+        31,
+        142
+      ],
+      [
+        0,
+        89246,
+        0,
+        0,
+        0
+      ],
+      [
+        11,
+        0,
+        67768,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        88334,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        98965
+      ]
+    ]
+  },
+  "detection_delay": {
+    "DoS_dataset": {
+      "bursts": 26,
+      "detected": 26,
+      "missed": 0,
+      "burst_duration_median_s": 4.685,
+      "frames_to_alert_median": 0,
+      "frames_to_alert_max": 0,
+      "mean_ms": 0.0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "Fuzzy_dataset": {
+      "bursts": 34,
+      "detected": 34,
+      "missed": 0,
+      "burst_duration_median_s": 5.258,
+      "frames_to_alert_median": 0,
+      "frames_to_alert_max": 0,
+      "mean_ms": 0.0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "gear_dataset": {
+      "bursts": 21,
+      "detected": 21,
+      "missed": 0,
+      "burst_duration_median_s": 3.496,
+      "frames_to_alert_median": 0,
+      "frames_to_alert_max": 0,
+      "mean_ms": 0.0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "RPM_dataset": {
+      "bursts": 20,
+      "detected": 20,
+      "missed": 0,
+      "burst_duration_median_s": 3.465,
+      "frames_to_alert_median": 0,
+      "frames_to_alert_max": 0,
+      "mean_ms": 0.0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    }
+  },
+  "unseen_attack": [
+    {
+      "held_out": "DoS",
+      "can_id_norm_removed": false,
+      "test_frames": 89246,
+      "flagged_as_attack_pct": 100.0,
+      "false_positive_rate_pct": 0.0265,
+      "assigned_to": {
+        "Fuzzy": 89246
+      }
+    },
+    {
+      "held_out": "Fuzzy",
+      "can_id_norm_removed": false,
+      "test_frames": 67779,
+      "flagged_as_attack_pct": 0.2,
+      "false_positive_rate_pct": 0.014,
+      "assigned_to": {
+        "Normal": 67644,
+        "DoS": 40,
+        "Gear": 1,
+        "RPM": 94
+      }
+    },
+    {
+      "held_out": "Gear",
+      "can_id_norm_removed": false,
+      "test_frames": 88334,
+      "flagged_as_attack_pct": 0.0,
+      "false_positive_rate_pct": 0.0205,
+      "assigned_to": {
+        "Normal": 88334
+      }
+    },
+    {
+      "held_out": "RPM",
+      "can_id_norm_removed": false,
+      "test_frames": 98965,
+      "flagged_as_attack_pct": 0.0,
+      "false_positive_rate_pct": 0.0203,
+      "assigned_to": {
+        "Normal": 98965
+      }
+    }
+  ],
+  "unseen_attack_no_can_id": [
+    {
+      "held_out": "DoS",
+      "can_id_norm_removed": true,
+      "test_frames": 89246,
+      "flagged_as_attack_pct": 100.0,
+      "false_positive_rate_pct": 0.0325,
+      "assigned_to": {
+        "Fuzzy": 89246
+      }
+    },
+    {
+      "held_out": "Fuzzy",
+      "can_id_norm_removed": true,
+      "test_frames": 67779,
+      "flagged_as_attack_pct": 0.24,
+      "false_positive_rate_pct": 0.0127,
+      "assigned_to": {
+        "Normal": 67615,
+        "DoS": 66,
+        "Gear": 4,
+        "RPM": 94
+      }
+    },
+    {
+      "held_out": "Gear",
+      "can_id_norm_removed": true,
+      "test_frames": 88334,
+      "flagged_as_attack_pct": 0.0,
+      "false_positive_rate_pct": 0.0209,
+      "assigned_to": {
+        "Normal": 88334
+      }
+    },
+    {
+      "held_out": "RPM",
+      "can_id_norm_removed": true,
+      "test_frames": 98965,
+      "flagged_as_attack_pct": 0.0,
+      "false_positive_rate_pct": 0.0229,
+      "assigned_to": {
+        "Normal": 98965
+      }
+    }
+  ],
+  "hypothesis_can_id_shortcut": {
+    "max_change_pp": 0.04,
+    "confirmed": false
+  },
+  "burst_timing_analysis": {
+    "DoS_dataset": {
+      "attack": "DoS",
+      "target_id": "0x000",
+      "target_is_known_id": false,
+      "learned_period_ms": null,
+      "detected_by": [
+        "is_known_id",
+        "bus_rate"
+      ],
+      "needs_attack_specific_payload": false
+    },
+    "gear_dataset": {
+      "attack": "Gear",
+      "target_id": "0x43F",
+      "target_is_known_id": true,
+      "learned_period_ms": 10.008,
+      "groups": {
+        "injected": {
+          "count": 43771,
+          "period_ratio_median": 0.02893
+        },
+        "legit_inside_burst": {
+          "count": 5228,
+          "period_ratio_median": 0.01247
+        },
+        "legit_outside_burst": {
+          "count": 5974,
+          "period_ratio_median": 0.2498
+        }
+      },
+      "timing_separates_injected_from_legit": false
+    },
+    "RPM_dataset": {
+      "attack": "RPM",
+      "target_id": "0x316",
+      "target_is_known_id": true,
+      "learned_period_ms": 10.035,
+      "groups": {
+        "injected": {
+          "count": 44819,
+          "period_ratio_median": 0.02847
+        },
+        "legit_inside_burst": {
+          "count": 5238,
+          "period_ratio_median": 0.01168
+        },
+        "legit_outside_burst": {
+          "count": 5929,
+          "period_ratio_median": 0.24923
+        }
+      },
+      "timing_separates_injected_from_legit": false
+    }
+  },
+  "payload_shortcut": {
+    "DoS_dataset": {
+      "attack": "DoS",
+      "target_id": "0x000",
+      "n_injected_frames": 60689,
+      "distinct_injected_payloads": 1,
+      "distinct_legitimate_payloads": 0,
+      "injected_constant": "00 00 00 00 00 00 00 00",
+      "test_applies": false,
+      "reason": "flood of an id the car never sends; no payload to spoof",
+      "recall_pct_hcrl_payload": 100.0,
+      "memorised_the_payload": null
+    },
+    "gear_dataset": {
+      "attack": "Gear",
+      "target_id": "0x43F",
+      "n_injected_frames": 43771,
+      "distinct_injected_payloads": 1,
+      "distinct_legitimate_payloads": 1325,
+      "injected_constant": "01 45 60 FF 6B 00 00 00",
+      "substituted_value": "10 40 60 FF 7D 00 08 01",
+      "test_applies": true,
+      "recall_pct_hcrl_payload": 100.0,
+      "recall_pct_substituted_payload": 16.28,
+      "memorised_the_payload": true
+    },
+    "RPM_dataset": {
+      "attack": "RPM",
+      "target_id": "0x316",
+      "n_injected_frames": 44819,
+      "distinct_injected_payloads": 1,
+      "distinct_legitimate_payloads": 115,
+      "injected_constant": "45 29 24 FF 29 24 00 FF",
+      "substituted_value": "05 20 68 09 20 1F 00 71",
+      "test_applies": true,
+      "recall_pct_hcrl_payload": 100.0,
+      "recall_pct_substituted_payload": 0.0,
+      "memorised_the_payload": true
+    }
+  },
+  "hypothesis_payload_shortcut": {
+    "confirmed": true,
+    "scope": "spoofing attacks (Gear, RPM); DoS not applicable",
+    "attacks_tested": [
+      "Gear",
+      "RPM"
+    ]
+  },
+  "false_alarms_by_id": {
+    "capture": "normal_run_data",
+    "frames": 988871,
+    "overall_false_alarm_pct": 0.0675,
+    "worst_ids": [
+      {
+        "id": "0x4B1",
+        "frames": 25324,
+        "false_alarm_pct": 1.0425
+      },
+      {
+        "id": "0x43F",
+        "frames": 50641,
+        "false_alarm_pct": 0.5786
+      },
+      {
+        "id": "0x0A0",
+        "frames": 5068,
+        "false_alarm_pct": 0.2368
+      },
+      {
+        "id": "0x260",
+        "frames": 50687,
+        "false_alarm_pct": 0.0848
+      },
+      {
+        "id": "0x1F1",
+        "frames": 25324,
+        "false_alarm_pct": 0.0434
+      },
+      {
+        "id": "0x131",
+        "frames": 50647,
+        "false_alarm_pct": 0.0375
+      }
+    ]
+  }
+}

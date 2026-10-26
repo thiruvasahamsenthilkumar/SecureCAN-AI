@@ -1,0 +1,38 @@
+{
+  "keras_bytes": 39544,
+  "tflite_float32_bytes": 6724,
+  "tflite_int8_bytes": 4968,
+  "int8_kb": 4.85,
+  "shrink_vs_float32": 1.353,
+  "eval_rows": 120000,
+  "float32_accuracy": 0.999867,
+  "int8_accuracy": 0.999883,
+  "accuracy_drop_pp": -0.0017,
+  "float32_attack_f1": 0.99949,
+  "int8_attack_f1": 0.99955,
+  "float32_fpr_pct": 0.01534,
+  "int8_fpr_pct": 0.01247,
+  "int8_vs_float32_agreement_pct": 99.9967,
+  "per_class": {
+    "Normal": {
+      "float32_recall": 0.99985,
+      "int8_recall": 0.99988
+    },
+    "DoS": {
+      "float32_recall": 1.0,
+      "int8_recall": 1.0
+    },
+    "Fuzzy": {
+      "float32_recall": 1.0,
+      "int8_recall": 0.99967
+    },
+    "Gear": {
+      "float32_recall": 1.0,
+      "int8_recall": 1.0
+    },
+    "RPM": {
+      "float32_recall": 1.0,
+      "int8_recall": 1.0
+    }
+  }
+}

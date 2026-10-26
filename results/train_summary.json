@@ -1,0 +1,13 @@
+{
+  "rule_thresholds": {
+    "bus_rate": 1.0,
+    "period_ratio": 0.15812500000000002
+  },
+  "mlp_params": 1157,
+  "n_features": 16,
+  "split_sizes": {
+    "train": 3241500,
+    "val": 685168,
+    "test": 2633758
+  }
+}
