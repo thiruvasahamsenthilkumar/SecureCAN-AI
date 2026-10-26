@@ -1,9 +1,13 @@
 # Raw dataset -- large, downloaded from HCRL. See data/README.md for the link.
 data/raw/
 
-# Processed arrays -- regenerate with `python -m securecan.parse`
-data/processed/*.npz
-data/processed/*.csv
+# Everything under data/processed/ is derived from data/raw/ and is
+# regenerable, so none of it is versioned:
+#   *.npz            written by `python -m securecan.parse`
+#   splits/          cached feature matrices (~450 MB) from the old v1 pipeline
+#   constants.json   a stale v1 duplicate -- the live one is results/constants.json,
+#                    which is what train.py writes and everything else reads
+data/processed/
 
 # Cached test-split predictions, written by evaluate.py so the comparison
 # plots can be redrawn without re-running inference. ~136 MB, and derived
