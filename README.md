@@ -261,7 +261,8 @@ HCRL dataset should be read with that in mind — including the ones above.
 4. **DoS is the easy case.** It floods an ID the car never sends; `is_known_id` alone
    catches it. The 100% there is not evidence of a clever model.
 5. **No CAN transceiver in the loop.** Wokwi doesn't model one, so the firmware replays
-   real recorded frames from `test_frames.h`. The feature extraction and INT8 inference
+   real recorded frames from `firmware/esp32/src/test_frames.h` (1,200 labelled frames
+   spanning 0.568 s of real bus time, 2,111 frames/s). The feature extraction and INT8 inference
    are fully exercised on the real instruction set; the physical layer is not.
 6. **Device timings will be from a simulator.** Wokwi runs the same ELF on a cycle-level
    model of the chip, but does not model flash-cache misses or SPI-RAM latency. Expect
