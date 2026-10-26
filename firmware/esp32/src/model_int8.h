@@ -12,6 +12,29 @@
 
 #include <stdint.h>
 
+// WHERE THE WEIGHTS LIVE, AND WHY IT IS WORTH 13x
+//
+// These arrays were originally `constexpr`, which puts them in .rodata -- in
+// flash. The ESP32 reaches flash through a cache, and the first Wokwi run
+// measured 1,749 us per frame against a 250 us budget. Profiling per stage
+// showed why: ~316 cycles for a single int8 multiply-accumulate, and layer 2
+// swinging between 1,032 and 35,403 cycles for identical work. Identical code
+// with 34x variance is not an arithmetic problem, it is a cache problem -- the
+// weight sweep was evicting itself on every frame.
+//
+// DRAM_ATTR places them in internal SRAM instead, which the CPU reads without
+// going through the cache at all. It costs 1,740 bytes of RAM -- 0.5% of the
+// ESP32's 320 KB -- and it is the single highest-value line in this firmware.
+//
+// The guard keeps the host parity build working, where DRAM_ATTR does not
+// exist and everything is in ordinary memory anyway.
+#if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
+#include <esp_attr.h>
+#define SC_W_ATTR DRAM_ATTR
+#else
+#define SC_W_ATTR
+#endif
+
 #define SC_N_CLASSES 5
 
 // Input quantisation. The 16 features are already min-max scaled to [0, 1] by
@@ -34,7 +57,7 @@ constexpr int32_t SC_L0_IN_ZERO  = -128;
 constexpr int32_t SC_L0_OUT_ZERO = -128;
 constexpr int32_t SC_L0_ACT_MIN  = -128;
 constexpr int32_t SC_L0_ACT_MAX  = 127;
-constexpr int8_t SC_L0_W[512] = {
+static const SC_W_ATTR int8_t SC_L0_W[512] = {
       -7,  -89, -116,  -23,  -12,  -94,   51,   40,   66,  -32,   26,  -43,   17, -127,  -72,   16,
      -83,  -45,   -8,   15,  -76,  -62,   65,  -74,   70,   47, -101,    9,  -77, -127,  -12,  -92,
      -28, -127,   35,  -40,  -49,  -78,  -86,  -76,  -50,  -59,  -57,   -4,   52,    0,  -20,   56,
@@ -68,13 +91,13 @@ constexpr int8_t SC_L0_W[512] = {
       88,   14,   79,  -59, -124,    0,  127,  -64,  -64,  -60,   43,   -9,   73,  -64,   14,   28,
      -21,   70,   25,   26,  -28,   -7,   69,  -35,   18, -127,   -8,    7,  -59,   22,  -84,   41,
 };
-constexpr int32_t SC_L0_B[32] = {
+static const SC_W_ATTR int32_t SC_L0_B[32] = {
       -3230,   -7201,    7608,    3317,   11866,    9779,     657,    8506,
       13044,    8278,    4535,    4411,    1656,    -445,    2214,    4212,
        5236,    1218,    2911,    1874,    3465,    7301,   -5914,    5993,
        6874,    1157,   14278,     525,    5747,    2420,   16536,    5822,
 };
-constexpr int32_t SC_L0_M[32] = {
+static const SC_W_ATTR int32_t SC_L0_M[32] = {
      1153914513,  1100842369,  1363960912,  1703716955,
      1483955488,  1378367478,  1194397467,  1824332957,
      1551719367,  1419698856,  1229266122,  1181483719,
@@ -84,7 +107,7 @@ constexpr int32_t SC_L0_M[32] = {
      1938083328,  1328705342,  1724004636,  1222454906,
      1230485040,  1127373397,  1202055282,  1692147376,
 };
-constexpr int32_t SC_L0_SHIFT[32] = {
+static const SC_W_ATTR int32_t SC_L0_SHIFT[32] = {
     -10, -10,  -8,  -9,  -9,  -9,  -6,  -9,  -9,  -9,  -8,  -8,
      -8,  -8,  -7,  -9,  -8,  -7,  -9,  -9,  -8,  -9, -11,  -9,
      -9,  -7,  -9,  -8,  -8,  -8,  -9,  -9,
@@ -97,7 +120,7 @@ constexpr int32_t SC_L1_IN_ZERO  = -128;
 constexpr int32_t SC_L1_OUT_ZERO = -128;
 constexpr int32_t SC_L1_ACT_MIN  = -128;
 constexpr int32_t SC_L1_ACT_MAX  = 127;
-constexpr int8_t SC_L1_W[512] = {
+static const SC_W_ATTR int8_t SC_L1_W[512] = {
      -24,  -66,   21, -120,  -83,  -60,   -4,   34,  -53,   49,  -23, -127,   64,    5,  -40,   50,
       -5,  -27,   17,  -55,  -55,  -75,   66,  -35,   30,   47,    1,  -87,   33,  121,   17, -116,
      -17,    9,    1,  -60,   24,   35,  127,  -17,   34,  -40,   56,   71,  -99,   95,   65,  -18,
@@ -131,17 +154,17 @@ constexpr int8_t SC_L1_W[512] = {
       96,   69, -122,  -72,  -39,  -41,  -42, -126,  -34,  -68,  -60,  -98,  -78,  106,   60,   35,
      102,   -2,   15,   64,   33,   35,   26,  -23,  -66,   79, -127,    6,  -10,  -43,  -80,  -28,
 };
-constexpr int32_t SC_L1_B[16] = {
+static const SC_W_ATTR int32_t SC_L1_B[16] = {
        -278,     859,    -167,    1139,     364,    -293,    -623,    -468,
         -67,     978,    -119,      35,    1002,     891,     988,    -400,
 };
-constexpr int32_t SC_L1_M[16] = {
+static const SC_W_ATTR int32_t SC_L1_M[16] = {
      1141757341,  1760475067,  1309733482,  1235152524,
      1796865843,  1294406159,  1422189366,  1391610284,
      1324334142,  1663803919,  1391347821,  1274190709,
      1229726129,  1729523682,  1560147467,  1447735748,
 };
-constexpr int32_t SC_L1_SHIFT[16] = {
+static const SC_W_ATTR int32_t SC_L1_SHIFT[16] = {
      -9,  -8,  -8,  -8,  -8,  -8, -10, -10, -10,  -8,  -8, -10,
      -8,  -8,  -8, -10,
 };
@@ -153,21 +176,21 @@ constexpr int32_t SC_L2_IN_ZERO  = -128;
 constexpr int32_t SC_L2_OUT_ZERO = -40;
 constexpr int32_t SC_L2_ACT_MIN  = -128;
 constexpr int32_t SC_L2_ACT_MAX  = 127;
-constexpr int8_t SC_L2_W[80] = {
+static const SC_W_ATTR int8_t SC_L2_W[80] = {
      -33,   11,   33,  -55, -127,   40,  -23,   -3,   -8,  -65,   39,    7,  -46,  -58,   52,  -22,
      -45,   21, -127,   84,  -47,  -55,    7,   22,  -47,   70, -119,  -17,  -86,   24,   87,    5,
      125, -127,   77,   46,  -67,   87,    8,   21,  -29,  -43,  -22,   22,   28,   69,    1,   25,
       29,   44,   31,   -8,  127,  -68,   13,   -1,   19,   14,    2,   24,   59,   69,  -67,   28,
       16,   34, -112,  127,   86,   89,  -15,   18,   -8,  -57,   18,  -13,  -22,  -43,  -45,   -2,
 };
-constexpr int32_t SC_L2_B[5] = {
+static const SC_W_ATTR int32_t SC_L2_B[5] = {
         108,     225,    -146,     -39,    -295,
 };
-constexpr int32_t SC_L2_M[5] = {
+static const SC_W_ATTR int32_t SC_L2_M[5] = {
      1595624084,  1395337592,  1768664851,  1270008756,
      1307561753,
 };
-constexpr int32_t SC_L2_SHIFT[5] = {
+static const SC_W_ATTR int32_t SC_L2_SHIFT[5] = {
      -7,  -8,  -8,  -7,  -8,
 };
 

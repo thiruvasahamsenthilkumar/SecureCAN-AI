@@ -134,17 +134,60 @@ scale), and INT8 agrees with float32 on **99.997%** of frames.
 
 | | used | available |
 |---|---|---|
-| RAM | 23,364 B (7.1%) | 327,680 B |
-| Flash | 300,120 B (22.9%) | 1,310,720 B |
+| RAM | 25,132 B (7.7%) | 327,680 B |
+| Flash | 302,096 B (23.0%) | 1,310,720 B |
 | model weights | 1,740 B | — |
 | network activations | 69 B | — |
 
-> **Per-frame latency on the ESP32 is not yet measured.** It needs a Wokwi account
-> token (`WOKWI_CLI_TOKEN`) or real hardware, and this README does not state numbers
-> that have not been measured. The firmware reports mean and max µs per frame over
-> serial, so `wokwi-cli .` fills this in with one command. For reference, the same
-> algorithm in Python on a laptop runs at a median of 74 µs INT8 vs 378 µs float32 —
-> useful for the ~5× INT8 speedup, useless as an embedded figure.
+**Functional result in the Wokwi simulator**, replaying 1,200 real labelled HCRL frames
+through the actual compiled ELF:
+
+| | |
+|---|---|
+| attack frames detected | **145 / 145 (recall 100.00%)** |
+| false alarms | **0 of 1,055 normal frames (FPR 0.0000%)** |
+
+### Why there is no latency number here
+
+Because I measured, found the instrument untrustworthy, and would rather say so than
+publish a figure I can't defend.
+
+The first Wokwi run reported **1,749 µs per frame — 7× over the 250 µs budget.** Chasing
+that down was the most instructive part of the project:
+
+1. **"It's the simulator's `micros()`."** Wrong. I added the CPU cycle counter (CCOUNT)
+   and it agreed: 419,825 cycles.
+2. **"It's flash-cache misses on the weights."** Wrong. I moved all 1,740 bytes into
+   internal SRAM with `DRAM_ATTR`. RAM grew by exactly 1,768 bytes, confirming it took
+   effect — and the timing did not move at all.
+3. **Calibrate the instrument.** `delay(100)` measured 23,827,865 cycles against an
+   expected 24,000,000 — ratio **0.993**, so the counter tracks wall time correctly. But
+   that only proves the *clock* is honest, not that the *CPU* retires instructions at a
+   sane rate. So I timed 100,000 dependent integer adds:
+
+   ```
+   cycles/iteration   105.07   (real silicon: ~4-6)
+   ```
+
+**Wokwi's ESP32 is not instruction-accurate — it charges roughly 20× too many cycles for
+compute-bound code.** The two clocks agreed only because both track wall time. So these
+runs establish *correctness*, not latency, and a real figure needs real hardware
+(SN65HVD230 transceiver + an actual ESP32). The firmware prints that calibration on every
+boot so nobody quotes its own timings without seeing the caveat first.
+
+### What the profiling did find
+
+Dilation is roughly uniform, so *ratios* between stages remain informative even when the
+absolutes are not. Per-stage profiling (`-DSC_NN_PROFILE`) exposed two genuine bugs:
+
+| | before | after | fix |
+|---|---|---|---|
+| input quantisation | 36,360 cyc | **2,694 cyc** | multiply by a precomputed reciprocal — the Xtensa LX6 FPU has **no divide instruction**, so 16 float divisions were expanding into reciprocal-plus-Newton-Raphson |
+| requantisation | ~5,000 cyc each, **data-dependent** | — | `t / (1ll << 31)` compiled to `__divdi3`, a *software* 64-bit division loop, because 32-bit Xtensa has no 64-bit divide. Replaced with magnitude-shift-resign, which is exact truncation |
+
+The `__divdi3` call is also what made layer 2 swing between 1,032 and 35,403 cycles for
+identical work — a software division loop's runtime depends on its operands. Both fixes
+are verified by the parity test: the predicted class still matches TFLite on every frame.
 
 ### Live demo
 
@@ -264,9 +307,11 @@ HCRL dataset should be read with that in mind — including the ones above.
    real recorded frames from `firmware/esp32/src/test_frames.h` (1,200 labelled frames
    spanning 0.568 s of real bus time, 2,111 frames/s). The feature extraction and INT8 inference
    are fully exercised on the real instruction set; the physical layer is not.
-6. **Device timings will be from a simulator.** Wokwi runs the same ELF on a cycle-level
-   model of the chip, but does not model flash-cache misses or SPI-RAM latency. Expect
-   the same order of magnitude on silicon, not the same three digits.
+6. **There is no measured per-frame latency.** Wokwi runs the real ELF and proves the
+   firmware is *correct* (100% recall, 0% FPR on 1,200 real frames), but it is not
+   instruction-accurate: a dependent integer add that costs 4–6 cycles on silicon
+   measures ~105 there. So the `<250 µs/frame` target is **unverified**, and verifying it
+   needs real hardware. I would rather ship that gap stated than a number I can't defend.
 7. **Future work:** train on timing features alone and report the lower, honest number;
    evaluate on ROAD (Oak Ridge), whose injected payloads vary so the shortcut isn't
    available; and measure on real hardware with an SN65HVD230 transceiver.

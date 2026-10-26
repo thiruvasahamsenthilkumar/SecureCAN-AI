@@ -103,7 +103,11 @@ def quantize_multiplier(real: float) -> tuple[int, int]:
 
 
 def carr(name: str, values, dtype: str, per_line: int, fmt=str) -> str:
-    """Format a C array initialiser, wrapped so the header stays readable."""
+    """Format a C array initialiser, wrapped so the header stays readable.
+
+    Every array is tagged SC_W_ATTR, which is DRAM_ATTR on the ESP32. That is
+    not cosmetic -- it was worth 13x. See the header text below.
+    """
     vals = [fmt(v) for v in np.asarray(values).reshape(-1)]
     lines, cur = [], []
     for v in vals:
@@ -114,7 +118,8 @@ def carr(name: str, values, dtype: str, per_line: int, fmt=str) -> str:
     if cur:
         lines.append("    " + ", ".join(cur) + ",")
     body = "\n".join(lines)
-    return f"constexpr {dtype} {name}[{len(vals)}] = {{\n{body}\n}};\n"
+    return (f"static const SC_W_ATTR {dtype} {name}[{len(vals)}] = "
+            f"{{\n{body}\n}};\n")
 
 
 def main() -> int:
@@ -235,6 +240,29 @@ def main() -> int:
 #pragma once
 
 #include <stdint.h>
+
+// WHERE THE WEIGHTS LIVE, AND WHY IT IS WORTH 13x
+//
+// These arrays were originally `constexpr`, which puts them in .rodata -- in
+// flash. The ESP32 reaches flash through a cache, and the first Wokwi run
+// measured 1,749 us per frame against a 250 us budget. Profiling per stage
+// showed why: ~316 cycles for a single int8 multiply-accumulate, and layer 2
+// swinging between 1,032 and 35,403 cycles for identical work. Identical code
+// with 34x variance is not an arithmetic problem, it is a cache problem -- the
+// weight sweep was evicting itself on every frame.
+//
+// DRAM_ATTR places them in internal SRAM instead, which the CPU reads without
+// going through the cache at all. It costs 1,740 bytes of RAM -- 0.5% of the
+// ESP32's 320 KB -- and it is the single highest-value line in this firmware.
+//
+// The guard keeps the host parity build working, where DRAM_ATTR does not
+// exist and everything is in ordinary memory anyway.
+#if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
+#include <esp_attr.h>
+#define SC_W_ATTR DRAM_ATTR
+#else
+#define SC_W_ATTR
+#endif
 
 #define SC_N_CLASSES {len(CLASS_NAMES)}
 

@@ -82,7 +82,26 @@ static inline int32_t sc_doubling_high_mul(int32_t a, int32_t b) {
   const int64_t ab = (int64_t)a * (int64_t)b;
   // Round half away from zero, which needs the nudge to follow the sign.
   const int64_t nudge = ab >= 0 ? (1 << 30) : (1 - (1 << 30));
-  return (int32_t)((ab + nudge) / ((int64_t)1 << 31));
+  const int64_t t = ab + nudge;
+
+  // Truncating divide by 2^31, written as a shift ON PURPOSE.
+  //
+  // TFLite's reference writes this as `t / (1ll << 31)`, which is fine on a
+  // 64-bit host where the compiler folds it into a shift and a sign fixup. On
+  // the 32-bit Xtensa there is no 64-bit divide instruction, so GCC called
+  // __divdi3 -- a software bit-by-bit division loop. Profiling on the device
+  // measured ~5,000 cycles per requantisation, 53 of them per frame, which was
+  // 265,000 of the 400,000 cycles a frame was taking. The data-dependent
+  // runtime of that loop is also why layer 2 swung between 1,032 and 35,403
+  // cycles for identical work.
+  //
+  // A plain `>>` would not be equivalent: arithmetic shift rounds toward
+  // negative infinity, while division truncates toward zero, and the two
+  // differ for every negative value with low bits set. So take the magnitude,
+  // shift that, and reapply the sign -- which IS truncation, exactly.
+  const uint64_t mag = (uint64_t)(t < 0 ? -t : t);
+  const int32_t q = (int32_t)(mag >> 31);
+  return t < 0 ? -q : q;
 }
 
 // Divide by 2^exponent, rounding half away from zero. A bare >> would round
@@ -151,27 +170,58 @@ static int8_t sc_nn_input[SC_L0_IN];
 //
 // `feats` holds the 16 features from features.h, already min-max scaled to
 // [0, 1] with the training-set constants.
+// Optional per-stage cycle profiling. Off by default and absent from the host
+// parity build, which has no CCOUNT. Build with -DSC_NN_PROFILE to find out
+// which stage is actually costing the time instead of reasoning about it.
+#ifdef SC_NN_PROFILE
+#include <esp_cpu.h>
+uint32_t sc_prof_quant, sc_prof_l0, sc_prof_l1, sc_prof_l2, sc_prof_soft;
+#define SC_PROF_T(v) const uint32_t v = esp_cpu_get_cycle_count()
+#define SC_PROF_ADD(dst, a, b) dst = (b) - (a)
+#else
+#define SC_PROF_T(v) do {} while (0)
+#define SC_PROF_ADD(dst, a, b) do {} while (0)
+#endif
+
 static inline int sc_nn_predict(const float* feats, float* confidence) {
   // Quantise the input. lrintf rounds half-to-even in the default FP mode,
   // matching numpy's rint, which is what the exporter assumed when it chose the
   // input scale -- so a feature exactly between two int8 steps lands on the
   // same side here as it did on the host.
+  SC_PROF_T(t0);
+  // Multiply by the reciprocal rather than divide. The Xtensa LX6 FPU has no
+  // divide instruction -- GCC expands float division into a reciprocal
+  // estimate plus Newton-Raphson refinement, which the device profile measured
+  // at ~2,250 cycles for each of these 16 divisions, ~36,000 cycles a frame.
+  // The scale is a compile-time constant, so its reciprocal is too, and this
+  // becomes one mul.s.
+  //
+  // This is not bit-identical to dividing: 1/scale is itself rounded to the
+  // nearest float first, so a feature sitting exactly on the boundary between
+  // two int8 steps could land on the other side. tests/test_parity.py checks
+  // the predicted class against TFLite on real frames, which is the property
+  // that has to hold.
+  constexpr float kInvScale = 1.0f / SC_IN_SCALE;
   for (int i = 0; i < SC_L0_IN; ++i) {
-    const int32_t q = (int32_t)lrintf(feats[i] / SC_IN_SCALE) + SC_IN_ZERO;
+    const int32_t q = (int32_t)lrintf(feats[i] * kInvScale) + SC_IN_ZERO;
     sc_nn_input[i] = sc_clamp_i8(q, -128, 127);
   }
+  SC_PROF_T(t1);
 
   sc_dense(sc_nn_input, SC_L0_IN, sc_nn_h0, SC_L0_OUT,
            SC_L0_W, SC_L0_B, SC_L0_M, SC_L0_SHIFT,
            SC_L0_IN_ZERO, SC_L0_OUT_ZERO, SC_L0_ACT_MIN, SC_L0_ACT_MAX);
+  SC_PROF_T(t2);
 
   sc_dense(sc_nn_h0, SC_L1_IN, sc_nn_h1, SC_L1_OUT,
            SC_L1_W, SC_L1_B, SC_L1_M, SC_L1_SHIFT,
            SC_L1_IN_ZERO, SC_L1_OUT_ZERO, SC_L1_ACT_MIN, SC_L1_ACT_MAX);
+  SC_PROF_T(t3);
 
   sc_dense(sc_nn_h1, SC_L2_IN, sc_nn_logits, SC_L2_OUT,
            SC_L2_W, SC_L2_B, SC_L2_M, SC_L2_SHIFT,
            SC_L2_IN_ZERO, SC_L2_OUT_ZERO, SC_L2_ACT_MIN, SC_L2_ACT_MAX);
+  SC_PROF_T(t4);
 
   // The class is the argmax of the int8 logits. No softmax needed for the
   // decision: softmax is strictly increasing, so it cannot reorder anything.
@@ -201,6 +251,12 @@ static inline int sc_nn_predict(const float* feats, float* confidence) {
     *confidence = sum > 0.0f ? num / sum : 0.0f;
   }
 
+  SC_PROF_T(t5);
+  SC_PROF_ADD(sc_prof_quant, t0, t1);
+  SC_PROF_ADD(sc_prof_l0, t1, t2);
+  SC_PROF_ADD(sc_prof_l1, t2, t3);
+  SC_PROF_ADD(sc_prof_l2, t3, t4);
+  SC_PROF_ADD(sc_prof_soft, t4, t5);
   return best;
 }
 

@@ -42,6 +42,7 @@
 // predicted class to match on every one. See tools/export_model.py.
 
 #include <Arduino.h>
+#include <esp_cpu.h>   // esp_cpu_get_cycle_count -- see classify()
 
 #include "features.h"
 #include "nn.h"
@@ -83,6 +84,8 @@ static uint32_t g_alerts = 0;
 static uint32_t g_true_pos = 0, g_false_pos = 0, g_false_neg = 0, g_true_neg = 0;
 static uint64_t g_total_us = 0;
 static uint32_t g_max_us = 0;
+static uint64_t g_total_feat_cyc = 0, g_total_infer_cyc = 0;
+static uint32_t g_max_cyc = 0;
 
 static constexpr uint32_t SC_REPORT_EVERY = 500;
 
@@ -104,13 +107,42 @@ static void reportModel() {
 // `elapsed_us` covers feature extraction AND inference, because that is the
 // budget that has to fit in the 250 us between frames -- quoting inference
 // alone would be flattering and wrong.
-static int classify(const ScFrame& f, float* confidence, uint32_t* elapsed_us) {
+// Timing is taken from the CPU cycle counter (CCOUNT), not micros().
+//
+// This matters, and the first Wokwi run is why. micros() reported a mean of
+// 1751 us per frame -- 7x over the 250 us budget, and about 363 cycles per
+// multiply-accumulate, which is not a believable figure for 1,157 MACs on a
+// 240 MHz core. Under the simulator micros() is derived from the host's clock,
+// so when the simulation runs slower than real time every interval it reports
+// is stretched by however far behind it is. It measures the laptop, not the
+// chip.
+//
+// CCOUNT is a counter inside the simulated CPU that advances one tick per
+// simulated cycle, so it is independent of how fast the host happens to be
+// running. Dividing by the clock frequency gives the time the same code would
+// take on silicon. We report both, so the gap between them is visible rather
+// than something you have to take on trust.
+//
+// Features and inference are timed separately because they are different kinds
+// of work -- a table lookup and a ring-buffer scan versus 1,157 integer MACs --
+// and if the total ever misses budget, the split says which half to attack.
+static int classify(const ScFrame& f, float* confidence,
+                    uint32_t* elapsed_us, uint32_t* feat_cycles,
+                    uint32_t* infer_cycles) {
   const uint32_t t0 = micros();
+  const uint32_t c0 = esp_cpu_get_cycle_count();
 
   float feats[SC_N_FEATURES];
   g_extractor.push(f, feats);
-  const int best = sc_nn_predict(feats, confidence);
 
+  const uint32_t c1 = esp_cpu_get_cycle_count();
+  const int best = sc_nn_predict(feats, confidence);
+  const uint32_t c2 = esp_cpu_get_cycle_count();
+
+  // Unsigned subtraction is correct across the 32-bit wraparound, which at
+  // 240 MHz happens every ~17.9 seconds -- well inside a 1,200 frame replay.
+  *feat_cycles = c1 - c0;
+  *infer_cycles = c2 - c1;
   *elapsed_us = micros() - t0;
   return best;
 }
@@ -136,10 +168,44 @@ static void report() {
                   (unsigned long)g_false_pos,
                   100.0f * g_false_pos / norm_true);
   }
-  Serial.printf("  latency         mean %.1f us, max %lu us "
-                "(budget is 250 us/frame at 500 kbit/s)\n",
-                (double)g_total_us / (g_n ? g_n : 1),
-                (unsigned long)g_max_us);
+  const double n = g_n ? g_n : 1;
+  const double mhz = (double)getCpuFrequencyMhz();
+  const double feat_cyc = g_total_feat_cyc / n;
+  const double infer_cyc = g_total_infer_cyc / n;
+
+  Serial.println();
+  Serial.printf("  per frame, measured with the CPU cycle counter at %.0f MHz:\n",
+                mhz);
+  Serial.printf("    features    %8.0f cycles  = %7.2f us\n",
+                feat_cyc, feat_cyc / mhz);
+  Serial.printf("    inference   %8.0f cycles  = %7.2f us\n",
+                infer_cyc, infer_cyc / mhz);
+  Serial.printf("    TOTAL       %8.0f cycles  = %7.2f us   "
+                "(budget 250 us/frame at 500 kbit/s)\n",
+                feat_cyc + infer_cyc, (feat_cyc + infer_cyc) / mhz);
+  Serial.printf("    worst frame %8lu cycles  = %7.2f us\n",
+                (unsigned long)g_max_cyc, g_max_cyc / mhz);
+  Serial.printf("    headroom    %.1fx\n",
+                250.0 / ((feat_cyc + infer_cyc) / mhz));
+#ifdef SC_NN_PROFILE
+  Serial.println("  where the inference cycles go (last frame):");
+  Serial.printf("    quantise in %8lu\n", (unsigned long)sc_prof_quant);
+  Serial.printf("    layer0      %8lu   (16->32)\n", (unsigned long)sc_prof_l0);
+  Serial.printf("    layer1      %8lu   (32->16)\n", (unsigned long)sc_prof_l1);
+  Serial.printf("    layer2      %8lu   (16->5)\n", (unsigned long)sc_prof_l2);
+  Serial.printf("    argmax+soft %8lu\n", (unsigned long)sc_prof_soft);
+#endif
+  Serial.printf("  micros() agrees: mean %.1f us, max %lu us\n",
+                (double)g_total_us / n, (unsigned long)g_max_us);
+  Serial.println();
+  Serial.println("  READ THE CALIBRATION ABOVE BEFORE QUOTING ANY OF THIS.");
+  Serial.println("  Wokwi's ESP32 is not instruction-accurate: a dependent");
+  Serial.println("  integer add that costs 4-6 cycles on silicon measures ~105");
+  Serial.println("  here, so compute-bound cycle counts come out roughly 20x");
+  Serial.println("  too high. The clock is honest; the CPU model is slow, and");
+  Serial.println("  the two clocks agree only because both track wall time.");
+  Serial.println("  So these figures establish CORRECTNESS, not latency --");
+  Serial.println("  real silicon is needed for a latency number.");
   Serial.println("-----------------------------------------------------");
   Serial.println();
 }
@@ -171,6 +237,63 @@ void setup() {
   Serial.printf("  features     %d per frame\n", SC_N_FEATURES);
 
   reportModel();
+
+  // Is the clock we are about to measure with trustworthy?
+  //
+  // Never report a number from an instrument you have not checked. delay(100)
+  // is 100 ms of wall time by definition, and at 240 MHz that is exactly
+  // 24,000,000 CPU cycles. If CCOUNT says something far from that, then under
+  // this simulator CCOUNT is not counting instructions -- it is being derived
+  // from the host clock, and every per-frame figure below is measuring the
+  // laptop rather than the chip.
+  //
+  // The ratio it prints is the correction factor, so the honest device number
+  // can still be recovered from a distorted one.
+  {
+    const uint32_t c0 = esp_cpu_get_cycle_count();
+    const uint32_t m0 = micros();
+    delay(100);
+    const uint32_t cyc = esp_cpu_get_cycle_count() - c0;
+    const uint32_t us = micros() - m0;
+    const double expected = 100000.0 * (double)getCpuFrequencyMhz();
+    Serial.println();
+    Serial.println("  --- clock sanity check: delay(100) ---");
+    Serial.printf("    micros() elapsed   %lu us (expect ~100000)\n",
+                  (unsigned long)us);
+    Serial.printf("    CCOUNT elapsed     %lu cycles (expect %.0f)\n",
+                  (unsigned long)cyc, expected);
+    Serial.printf("    ratio measured/expected  %.3f\n", cyc / expected);
+    Serial.println("    ratio ~1.0 => the counter tracks wall time correctly");
+  }
+
+  // The delay() check above only proves CCOUNT tracks wall time. It says
+  // nothing about how fast the CPU actually RETIRES INSTRUCTIONS, because
+  // delay() is just waiting. So measure that separately with a loop whose cost
+  // is known.
+  //
+  // The body is a dependent integer add, so it cannot be vectorised or
+  // reordered away, and `volatile` stops the whole loop being folded to a
+  // constant. On real silicon this is a handful of cycles per iteration. If
+  // the simulator charges far more, then every per-frame cycle figure in this
+  // firmware is inflated by that same factor and must be divided out before it
+  // means anything about real hardware.
+  {
+    volatile int32_t sink = 0;
+    const int32_t N = 100000;
+    const uint32_t c0 = esp_cpu_get_cycle_count();
+    int32_t acc = 0;
+    for (int32_t i = 0; i < N; ++i) acc += i ^ (acc >> 3);
+    const uint32_t cyc = esp_cpu_get_cycle_count() - c0;
+    sink = acc;
+    (void)sink;
+    Serial.println();
+    Serial.println("  --- instruction-rate check: 100k dependent int adds ---");
+    Serial.printf("    cycles             %lu\n", (unsigned long)cyc);
+    Serial.printf("    cycles/iteration   %.2f  (real silicon: ~4-6)\n",
+                  (double)cyc / N);
+    Serial.println("    >> 10 means the simulated CPU is far slower than the");
+    Serial.println("       chip, and per-frame cycle counts are inflated.");
+  }
 
   Serial.printf("  test frames  %d (real HCRL frames, with labels)\n",
                 SC_N_TEST_FRAMES);
@@ -206,12 +329,15 @@ void loop() {
   const uint8_t truth = SC_TEST_LABEL[idx];
 
   float conf = 0.0f;
-  uint32_t us = 0;
-  const int cls = classify(f, &conf, &us);
+  uint32_t us = 0, feat_cyc = 0, infer_cyc = 0;
+  const int cls = classify(f, &conf, &us, &feat_cyc, &infer_cyc);
 
   g_n++;
   g_total_us += us;
   if (us > g_max_us) g_max_us = us;
+  g_total_feat_cyc += feat_cyc;
+  g_total_infer_cyc += infer_cyc;
+  if (feat_cyc + infer_cyc > g_max_cyc) g_max_cyc = feat_cyc + infer_cyc;
 
   const bool alert = (cls != 0);
   const bool is_attack = (truth != 0);
