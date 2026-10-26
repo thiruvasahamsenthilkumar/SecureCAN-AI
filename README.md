@@ -88,6 +88,20 @@ meaningless. `python -m securecan.evaluate`
 Per-class F1: Normal 0.9999 · DoS 1.0000 · Fuzzy 0.9980 · Gear 0.9998 · RPM 0.9993.
 Overall accuracy 99.9831%.
 
+![MLP confusion matrix](results/confusion_mlp.png)
+
+The confusion matrix is more informative than the headline. Of 2,289,434 normal frames,
+433 are misclassified — 260 as Fuzzy, 142 as RPM, 31 as Gear. In the other direction,
+**DoS, Gear and RPM are caught completely** (89,246 / 88,334 / 98,965, zero missed), and
+Fuzzy misses **11 frames out of 67,779**, all of them labelled Normal.
+
+So 433 of the 444 total errors are normal-flagged-as-attack — the direction you want in
+a detector that only reports and never blocks. The 11 missed Fuzzy frames are the only
+true misses in 2.6 million frames, and because Fuzzy arrives in bursts of thousands,
+missing 11 individual frames never costs a burst: all 34 Fuzzy bursts are still detected
+on their first injected frame. The [random-forest
+matrix](results/confusion_forest.png) is committed alongside for comparison.
+
 ### Speed of alarm
 
 | capture | bursts | detected | missed | frames to alert (median / max) |
