@@ -1,56 +1,41 @@
-# Data files (large CSV datasets)
-data/*.csv
-!data/README.md
-!data/feature_names.txt
+# Raw dataset -- large, downloaded from HCRL. See data/README.md for the link.
+data/raw/
 
-# Build output
-*.exe
-*.o
-tests/host_predictions.csv
+# Processed arrays -- regenerate with `python -m securecan.parse`
+data/processed/*.npz
+data/processed/*.csv
 
-# Generated test vectors (re-created by scripts/export_test_vectors.py)
-tests/vec_features.csv
-tests/vec_windows.csv
-tests/_idx.npy
+# Cached test-split predictions, written by evaluate.py so the comparison
+# plots can be redrawn without re-running inference. ~136 MB, and derived
+# entirely from the committed model plus the capture, so not worth versioning.
+results/_*.npy
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
 .venv/
-.env
+venv/
+env/
 *.egg-info/
 dist/
 build/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb_checkpoints
 
-# IDE
+# Firmware build output
+firmware/esp32/.pio/
+*.elf
+*.bin
+*.o
+*.exe
+
+# IDE / OS
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Compiled models (but keep the joblib file)
-*.h5
-*.pkl.bak
-
-# Large binary files
-*.mp4
-
-# Local test outputs
-*.log
-test_output/
+*.swp
 
 # Claude Code local state
 .claude/
